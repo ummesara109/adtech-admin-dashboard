@@ -1,21 +1,38 @@
-require('dotenv').config();
+"use strict";
+require("dotenv").config();
 
-const { createClient } = require('@supabase/supabase-js');
+const { createClient } = require("@supabase/supabase-js");
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+/* Accept either name — dashboards have used both in docs/env examples. */
+const supabaseSecretKey =
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseSecretKey) {
-    throw new Error(
-        'Supabase URL or Secret Key is missing in environment variables'
+let client = null;
+
+function getSupabase() {
+  if (client) return client;
+  if (!supabaseUrl || !supabaseSecretKey) {
+    const err = new Error(
+      "Server is not configured: set SUPABASE_URL and SUPABASE_SECRET_KEY (or SUPABASE_SERVICE_ROLE_KEY) on Vercel."
     );
+    err.code = 500;
+    throw err;
+  }
+  client = createClient(supabaseUrl, supabaseSecretKey, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  return client;
 }
 
-const supabase = createClient(
-    supabaseUrl,
-    supabaseSecretKey
+module.exports = new Proxy(
+  {},
+  {
+    get(_t, prop) {
+      const sb = getSupabase();
+      const value = sb[prop];
+      return typeof value === "function" ? value.bind(sb) : value;
+    }
+  }
 );
-
-console.log('Supabase client initialized successfully');
-
-module.exports = supabase;

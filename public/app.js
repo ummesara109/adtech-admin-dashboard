@@ -52,10 +52,22 @@ const ic = n => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="current
 let token = null; try { token = localStorage.getItem(TK); } catch (e) { /* no storage */ }
 let ME = null, D = {}, META = { areas: [] }, PORTAL = "admin", cur = "dashboard", VIEW = null, ADMIN_D = null; /* VIEW = client whose portal an admin is previewing (view-only) */
 async function API(method, url, body) {
-  const r = await fetch(url, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
-  let j = {}; try { j = await r.json(); } catch (e) { /* empty body */ }
+  let r;
+  try {
+    r = await fetch(url, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  } catch (e) {
+    throw new Error("Cannot reach the server. Check your connection or redeploy the API.");
+  }
+  const raw = await r.text();
+  let j = {};
+  try { j = raw ? JSON.parse(raw) : {}; } catch (e) { /* HTML / empty body */ }
   if (r.status === 401 && token) { logout(); toast("Session expired. Please sign in again."); }
-  if (!r.ok) throw new Error(j.error || "Request failed");
+  if (!r.ok) {
+    if (r.status === 404 && (/NOT_FOUND/i.test(raw) || /could not be found/i.test(raw) || !j.error)) {
+      throw new Error("API not found (404). Redeploy from the project root and set SUPABASE_URL + SUPABASE_SECRET_KEY on Vercel.");
+    }
+    throw new Error(j.error || "Request failed (" + r.status + ")");
+  }
   return j;
 }
 async function refresh() {
