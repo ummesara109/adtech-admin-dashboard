@@ -3,17 +3,11 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
-      "includeFiles": "{lib/**,config/**,data/**}"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api",
-      "destination": "/api/index"
+      "includeFiles": "{lib,config,data}/**/*"
     },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index?route=$1"
+    "api/[...path].js": {
+      "maxDuration": 30,
+      "includeFiles": "{lib,config,data}/**/*"
     }
-  ]
+  }
 }

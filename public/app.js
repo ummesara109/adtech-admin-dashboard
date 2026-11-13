@@ -63,8 +63,8 @@ async function API(method, url, body) {
   try { j = raw ? JSON.parse(raw) : {}; } catch (e) { /* HTML / empty body */ }
   if (r.status === 401 && token) { logout(); toast("Session expired. Please sign in again."); }
   if (!r.ok) {
-    if (r.status === 404 && (/NOT_FOUND/i.test(raw) || /could not be found/i.test(raw) || !j.error)) {
-      throw new Error("API not found (404). Redeploy from the project root and set SUPABASE_URL + SUPABASE_SECRET_KEY on Vercel.");
+    if (!j.error && (r.status === 404 || r.status === 500) && /NOT_FOUND|FUNCTION_INVOCATION_FAILED|could not be found|INTERNAL_SERVER_ERROR/i.test(raw)) {
+      throw new Error("API is down (" + r.status + "). Wait for the latest Vercel deploy, then set SUPABASE_URL and SUPABASE_SECRET_KEY in Vercel → Settings → Environment Variables.");
     }
     throw new Error(j.error || "Request failed (" + r.status + ")");
   }
