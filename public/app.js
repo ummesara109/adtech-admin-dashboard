@@ -399,14 +399,17 @@ function applyBootstrap(r) {
 async function enter(boot) {
   if (boot && boot.data) applyBootstrap(boot);
   else await refresh();
+  if (!ME) throw new Error("Sign in required");
   cur = "dashboard"; VIEW = null; ADMIN_D = null;
   $("#un").textContent = ME.name; $("#ue").textContent = ME.email; $("#uav").textContent = initials(ME.name);
-  syncChrome(); showScreen("app"); go("dashboard");
+  syncChrome();
+  showScreen("app");
+  go("dashboard");
 }
 function logout() {
   token = null; VIEW = null; ADMIN_D = null; PORTAL = "admin"; try { localStorage.removeItem(TK); } catch (e) { /* ignore */ }
   const bar = $("#impbar"); if (bar) bar.classList.remove("on");
-  stopLive(); closeDrawer(); closeModal(); closeMenu(); ME = null; showScreen("landing");
+  stopLive(); closeDrawer(); closeModal(); closeMenu(); ME = null; D = {}; showScreen("landing");
 }
 document.querySelectorAll("[data-ic]").forEach(el => el.insertAdjacentHTML("afterbegin", ic(el.dataset.ic)));
 document.querySelectorAll(".lc").forEach(f => {
@@ -433,14 +436,10 @@ $("#theme").onclick = toggleTheme; $("#theme0").onclick = toggleTheme;
 const fit = () => document.body.classList.toggle("collapsed", innerWidth > 760 && innerWidth <= 1100);
 addEventListener("resize", fit); fit();
 
-(async () => {
-  if (!token) return;
-  $("#landing").style.display = "none";
-  try {
-    await enter();
-  } catch (e) {
-    logout();
-  }
-})();
+/* Always show the login page on open. Do not auto-enter from a saved token. */
+token = null;
+try { localStorage.removeItem(TK); } catch (e) { /* ignore */ }
+showScreen("landing");
+
 
 }
