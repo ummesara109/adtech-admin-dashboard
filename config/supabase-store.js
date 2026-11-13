@@ -25,13 +25,16 @@ async function readTable(table) {
 }
 
 async function loadDatabase() {
-    const db = {};
+    const collectionEntries = Object.entries(COLLECTIONS);
 
-    for (const [key, table] of Object.entries(COLLECTIONS)) {
-        db[key] = await readTable(table);
-    }
+    const [collectionRows, settings] = await Promise.all([
+        Promise.all(
+            collectionEntries.map(async ([key, table]) => [key, await readTable(table)])
+        ),
+        readTable('app_settings')
+    ]);
 
-    const settings = await readTable('app_settings');
+    const db = Object.fromEntries(collectionRows);
 
     db.settings =
         settings.find(item => item.id === 'settings')?.value || {};
@@ -39,10 +42,7 @@ async function loadDatabase() {
     db.meta =
         settings.find(item => item.id === 'meta')?.value || {};
 
-    const hasData = Object.values(COLLECTIONS)
-        .some((table, index) =>
-            db[Object.keys(COLLECTIONS)[index]].length > 0
-        );
+    const hasData = collectionEntries.some(([key]) => (db[key] || []).length > 0);
 
     return hasData ? db : null;
 }
@@ -87,24 +87,30 @@ async function saveTable(table, records) {
     }
 }
 
-async function saveDatabase(db) {
-    for (const [key, table] of Object.entries(COLLECTIONS)) {
-        await saveTable(table, db[key] || []);
+async function saveDatabase(db, onlyKeys) {
+    const keys = onlyKeys && onlyKeys.length
+        ? onlyKeys.filter(key => COLLECTIONS[key])
+        : Object.keys(COLLECTIONS);
+
+    await Promise.all(
+        keys.map(key => saveTable(COLLECTIONS[key], db[key] || []))
+    );
+
+    if (!onlyKeys || onlyKeys.includes('settings') || onlyKeys.includes('meta')) {
+        const settingsRows = [
+            { id: 'settings', value: db.settings || {} },
+            { id: 'meta', value: db.meta || {} }
+        ].map(item => ({
+            id: item.id,
+            payload: item
+        }));
+
+        const { error } = await supabase
+            .from('app_settings')
+            .upsert(settingsRows, { onConflict: 'id' });
+
+        if (error) throw new Error(`app_settings: ${error.message}`);
     }
-
-    const settingsRows = [
-        { id: 'settings', value: db.settings || {} },
-        { id: 'meta', value: db.meta || {} }
-    ].map(item => ({
-        id: item.id,
-        payload: item
-    }));
-
-    const { error } = await supabase
-        .from('app_settings')
-        .upsert(settingsRows, { onConflict: 'id' });
-
-    if (error) throw new Error(`app_settings: ${error.message}`);
 
     console.log('Database saved to Supabase successfully');
 }
@@ -126,5 +132,7 @@ async function initializeDatabase(initialDatabase) {
 
 module.exports = {
     initializeDatabase,
-    saveDatabase
+    saveDatabase,
+    saveTable,
+    COLLECTIONS
 };

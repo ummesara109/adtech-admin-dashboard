@@ -71,9 +71,7 @@ async function API(method, url, body) {
   return j;
 }
 async function refresh() {
-  const r = await API("GET", "/api/bootstrap");
-  ME = r.me; PORTAL = ME.portal; META.areas = r.areas; D = r.data;
-  Object.keys(S).forEach(k => { D[k] = D[k] || []; });
+  applyBootstrap(await API("GET", "/api/bootstrap"));
 }
 const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 2400); };
 
@@ -394,8 +392,14 @@ async function exitClientView() {
   try { await refresh(); } catch (e) { return; }
   syncChrome(); go(back && (V[back] || S[back]) ? back : "dashboard");
 }
-async function enter() {
-  await refresh(); cur = "dashboard"; VIEW = null; ADMIN_D = null;
+function applyBootstrap(r) {
+  ME = r.me; PORTAL = ME.portal; META.areas = r.areas || []; D = r.data || {};
+  Object.keys(S).forEach(k => { D[k] = D[k] || []; });
+}
+async function enter(boot) {
+  if (boot && boot.data) applyBootstrap(boot);
+  else await refresh();
+  cur = "dashboard"; VIEW = null; ADMIN_D = null;
   $("#un").textContent = ME.name; $("#ue").textContent = ME.email; $("#uav").textContent = initials(ME.name);
   syncChrome(); showScreen("app"); go("dashboard");
 }
@@ -409,10 +413,11 @@ document.querySelectorAll(".lc").forEach(f => {
   f.onsubmit = async e => {
     e.preventDefault(); const btn = f.querySelector(".btn"), err = f.querySelector(".merr"); btn.disabled = true; err.textContent = "";
     try {
+      btn.textContent = "Signing in…";
       const r = await API("POST", "/api/login", { email: f.elements.email.value, password: f.elements.password.value, portal: f.dataset.portal });
       token = r.token; try { localStorage.setItem(TK, token); } catch (x) { /* ignore */ }
-      await enter();
-    } catch (x) { err.textContent = x.message; } finally { btn.disabled = false; }
+      await enter(r);
+    } catch (x) { err.textContent = x.message; } finally { btn.disabled = false; btn.textContent = "Sign in as Admin"; }
   };
 });
 $("#side").onclick = e => {
