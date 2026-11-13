@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "includeFiles": "{public,lib,config,data}/**/*"
-    }
-  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
   ]
